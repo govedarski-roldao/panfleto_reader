@@ -22,4 +22,7 @@ def remove_img_from_pdf(pdf_path):
         print("Guardado:", output)
 
     doc.close()
-remove_img_from_pdf(r"C:\Users\Utilizador\Desktop\Ideias para negocios\ler_panfletos\backend\Folheto_Digital_Bons_Negcios.pdf")
+    print("Todas as folhas do pdf extraidas e convertidas para jpeg")
+
+if __name__ == "__main__":
+    remove_img_from_pdf(r"C:\Users\Utilizador\Desktop\Ideias para negocios\ler_panfletos\backend\Folheto_Digital_Bons_Negcios.pdf")

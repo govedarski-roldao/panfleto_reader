@@ -18,9 +18,7 @@ import sys
 
 
 # ---------------------------- CONSTANTS ------------------------------- #
-creators = ["Rodolfo", "Marina", "Kristiyan", "Lena", "Artem"]
-bench = ["167M", "223M", "MMA"]
-wm = ["1WM", "2WM"]
+
 
 
 # ---------------------------- FUNCTIONS ------------------------------- #
@@ -112,7 +110,8 @@ def browse_files():
 
 
 def create_ticket_thread():
-    threading.Thread(target=create_ticket, daemon=True).start()
+    pdf_path = attachments_input.get().strip()
+    threading.Thread(target=remove_img_from_pdf, args=(pdf_path,), daemon=True).start()
 
 
 def organize_files(files_to_organize):
@@ -185,9 +184,6 @@ def verify_fields():
                     attachments_list.append(file)
                     files_to_send.append(file)
 
-    if not description or description == description_template:
-        errors.append("complete description")
-
     if errors:
         messagebox.showwarning("Missing fields", polite + ", ".join(errors) + ".")
         return False
@@ -195,14 +191,10 @@ def verify_fields():
     return {
         "main_title": main_title,
         "creator": creator_var.get(),
-        "bundle": bundle,
         "attachments": attachments_list,  # ficheiros originais + zips
-        "description": description,
         "files_to_send": files_to_send,
         "wm": wm_var.get(),
         "bench": bench_var.get(),
-        "arq_code": arq_code,
-        "architecture": architecture,
     }
 
 
@@ -215,11 +207,8 @@ root.config(bg="#f5f5f5", padx=20, pady=20)
 root.option_add("*Font", ("Arial", 14))
 
 creator_var = StringVar()
-creator_var.set(creators[0])
 bench_var = StringVar()
-bench_var.set(bench[0])
 wm_var = StringVar()
-wm_var.set(wm[0])
 test_bench_var = StringVar(root)
 
 # Labels
@@ -227,7 +216,6 @@ test_bench_var = StringVar(root)
 Label(root, text="Titulo para pasta final:", bg="#f5f5f5").grid(column=0, row=0, sticky="W", pady=5)
 
 Label(root, text="Escolhe o ficheiro PDF:", bg="#f5f5f5").grid(column=0, row=3, sticky="W", pady=5)
-
 
 attached_count_label = Label(root, text="Files attached: 0", bg="#f5f5f5")
 attached_count_label.grid(column=2, row=4, sticky="W", padx=10)
@@ -237,23 +225,8 @@ main_title_input = Entry(root, width=40, bd=2, relief="groove")
 main_title_input.grid(column=1, row=0, columnspan=2, sticky="EW", padx=10, pady=5)
 main_title_input.focus()
 
-# bundle_input = Entry(root, width=40, bd=2, relief="groove")
-# bundle_input.grid(column=1, row=2, columnspan=2, sticky="EW", padx=10, pady=5)
-
 attachments_input = Entry(root, width=80, bd=2, relief="groove", font=("Arial", 10))
 attachments_input.grid(column=0, row=4, columnspan=2, sticky="EW", padx=10, pady=5)
-
-
-# DropDown
-# creator_dropdown = OptionMenu(root, creator_var, *creators)
-# creator_dropdown.grid(row=0, column=1, sticky="EW", padx=10, pady=5)
-
-# bench_dropdown = OptionMenu(root, bench_var, *bench)
-# bench_dropdown.grid(row=5, column=2, sticky="EW", padx=10, pady=5)
-#
-# wm_dropdown = OptionMenu(root, wm_var, *wm)
-# wm_dropdown.grid(row=5, column=1, sticky="EW", padx=10, pady=5)
-
 
 root.grid_columnconfigure(1, weight=1)
 
@@ -266,7 +239,6 @@ browse_button.grid(column=2, row=3, padx=10, pady=5, sticky="E")
 create_ticket_button = Button(root, text="Extrair Precos", command=create_ticket_thread, bg="#28a745", fg="white",
                               relief="raised", padx=15, pady=8)
 create_ticket_button.grid(column=0, row=9, columnspan=3, pady=10, sticky="EW")
-
 
 log_frame = Frame(root, bg="black")
 log_frame.grid(column=0, row=11, columnspan=3, sticky="EW", padx=10, pady=10)
@@ -286,6 +258,16 @@ log_text = ScrolledText(
 log_text.pack(fill=BOTH, expand=True)
 log_text.insert("end", "Logs will appear here...\n")
 log_text.config(state="disabled")
+
+# DropDown
+# creator_dropdown = OptionMenu(root, creator_var, *creators)
+# creator_dropdown.grid(row=0, column=1, sticky="EW", padx=10, pady=5)
+
+# bench_dropdown = OptionMenu(root, bench_var, *bench)
+# bench_dropdown.grid(row=5, column=2, sticky="EW", padx=10, pady=5)
+#
+# wm_dropdown = OptionMenu(root, wm_var, *wm)
+# wm_dropdown.grid(row=5, column=1, sticky="EW", padx=10, pady=5)
 
 # Redireciona prints para o log
 sys.stdout = TextRedirector(log_text, "STDOUT")
