@@ -23,6 +23,16 @@ import sys
 
 # ---------------------------- FUNCTIONS ------------------------------- #
 
+root = None
+creator_var = None
+bench_var = None
+wm_var = None
+test_bench_var = None
+main_title_input = None
+attachments_input = None
+attached_count_label = None
+log_text = None
+
 
 class TextRedirector:
     def __init__(self, text_widget, tag):
@@ -198,83 +208,85 @@ def verify_fields():
     }
 
 
-# ---------------------------- UI SETUP ------------------------------- #
-# Window
-root = Tk()
-root.title("Extractor de Precos")
-root.geometry("600x500")  # Initial size
-root.config(bg="#f5f5f5", padx=20, pady=20)
-root.option_add("*Font", ("Arial", 14))
+def run_ui():
+    global root, creator_var, bench_var, wm_var, test_bench_var
+    global main_title_input, attachments_input, attached_count_label, log_text
 
-creator_var = StringVar()
-bench_var = StringVar()
-wm_var = StringVar()
-test_bench_var = StringVar(root)
+    root = Tk()
+    root.title("Extractor de Precos")
+    root.geometry("600x500")
+    root.config(bg="#f5f5f5", padx=20, pady=20)
+    root.option_add("*Font", ("Arial", 14))
 
-# Labels
-# Label(root, text="User:", bg="#f5f5f5").grid(column=0, row=0, sticky="W", pady=5)
-Label(root, text="Titulo para pasta final:", bg="#f5f5f5").grid(column=0, row=0, sticky="W", pady=5)
+    creator_var = StringVar()
+    bench_var = StringVar()
+    wm_var = StringVar()
+    test_bench_var = StringVar(root)
 
-Label(root, text="Escolhe o ficheiro PDF:", bg="#f5f5f5").grid(column=0, row=3, sticky="W", pady=5)
+    Label(root, text="Titulo para pasta final:", bg="#f5f5f5").grid(column=0, row=0, sticky="W", pady=5)
+    Label(root, text="Escolhe o ficheiro PDF:", bg="#f5f5f5").grid(column=0, row=3, sticky="W", pady=5)
 
-attached_count_label = Label(root, text="Files attached: 0", bg="#f5f5f5")
-attached_count_label.grid(column=2, row=4, sticky="W", padx=10)
+    attached_count_label = Label(root, text="Files attached: 0", bg="#f5f5f5")
+    attached_count_label.grid(column=2, row=4, sticky="W", padx=10)
 
-# Entry and dinamic labels
-main_title_input = Entry(root, width=40, bd=2, relief="groove")
-main_title_input.grid(column=1, row=0, columnspan=2, sticky="EW", padx=10, pady=5)
-main_title_input.focus()
+    main_title_input = Entry(root, width=40, bd=2, relief="groove")
+    main_title_input.grid(column=1, row=0, columnspan=2, sticky="EW", padx=10, pady=5)
+    main_title_input.focus()
 
-attachments_input = Entry(root, width=80, bd=2, relief="groove", font=("Arial", 10))
-attachments_input.grid(column=0, row=4, columnspan=2, sticky="EW", padx=10, pady=5)
+    attachments_input = Entry(root, width=80, bd=2, relief="groove", font=("Arial", 10))
+    attachments_input.grid(column=0, row=4, columnspan=2, sticky="EW", padx=10, pady=5)
 
-root.grid_columnconfigure(1, weight=1)
+    root.grid_columnconfigure(1, weight=1)
 
-# Buttons
+    browse_button = Button(
+        text="Browse...",
+        command=browse_files,
+        bg="#007acc",
+        fg="white",
+        relief="raised",
+        padx=10,
+        pady=5,
+    )
+    browse_button.grid(column=2, row=3, padx=10, pady=5, sticky="E")
 
-browse_button = Button(text="Browse...", command=browse_files, bg="#007acc", fg="white", relief="raised", padx=10,
-                       pady=5)
-browse_button.grid(column=2, row=3, padx=10, pady=5, sticky="E")
+    create_ticket_button = Button(
+        root,
+        text="Extrair Precos",
+        command=create_ticket_thread,
+        bg="#28a745",
+        fg="white",
+        relief="raised",
+        padx=15,
+        pady=8,
+    )
+    create_ticket_button.grid(column=0, row=9, columnspan=3, pady=10, sticky="EW")
 
-create_ticket_button = Button(root, text="Extrair Precos", command=create_ticket_thread, bg="#28a745", fg="white",
-                              relief="raised", padx=15, pady=8)
-create_ticket_button.grid(column=0, row=9, columnspan=3, pady=10, sticky="EW")
+    log_frame = Frame(root, bg="black")
+    log_frame.grid(column=0, row=11, columnspan=3, sticky="EW", padx=10, pady=10)
 
-log_frame = Frame(root, bg="black")
-log_frame.grid(column=0, row=11, columnspan=3, sticky="EW", padx=10, pady=10)
+    log_text = ScrolledText(
+        log_frame,
+        width=70,
+        height=10,
+        bd=2,
+        relief="sunken",
+        font=("Consolas", 10),
+        wrap="word",
+        bg="black",
+        fg="white",
+        insertbackground="white",
+    )
+    log_text.pack(fill=BOTH, expand=True)
+    log_text.insert("end", "Logs will appear here...\n")
+    log_text.config(state="disabled")
 
-log_text = ScrolledText(
-    log_frame,
-    width=70,
-    height=10,
-    bd=2,
-    relief="sunken",
-    font=("Consolas", 10),
-    wrap="word",
-    bg="black",  # fundo
-    fg="white",  # texto
-    insertbackground="white"  # cursor
-)
-log_text.pack(fill=BOTH, expand=True)
-log_text.insert("end", "Logs will appear here...\n")
-log_text.config(state="disabled")
+    sys.stdout = TextRedirector(log_text, "STDOUT")
+    sys.stderr = TextRedirector(log_text, "STDERR")
 
-# DropDown
-# creator_dropdown = OptionMenu(root, creator_var, *creators)
-# creator_dropdown.grid(row=0, column=1, sticky="EW", padx=10, pady=5)
+    root.grid_columnconfigure(1, weight=1)
+    root.grid_columnconfigure(2, weight=0)
+    root.mainloop()
 
-# bench_dropdown = OptionMenu(root, bench_var, *bench)
-# bench_dropdown.grid(row=5, column=2, sticky="EW", padx=10, pady=5)
-#
-# wm_dropdown = OptionMenu(root, wm_var, *wm)
-# wm_dropdown.grid(row=5, column=1, sticky="EW", padx=10, pady=5)
 
-# Redireciona prints para o log
-sys.stdout = TextRedirector(log_text, "STDOUT")
-sys.stderr = TextRedirector(log_text, "STDERR")
-
-# ------------------------ GRID CONFIG ------------------------ #
-root.grid_columnconfigure(1, weight=1)  # Make column 1 expandable
-root.grid_columnconfigure(2, weight=0)
-
-root.mainloop()
+if __name__ == "__main__":
+    run_ui()
