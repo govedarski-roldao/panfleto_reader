@@ -7,9 +7,10 @@ from pathlib import Path
 from typing import Any
 from urllib import error, request
 
+
 ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 DEFAULT_MODEL = "claude-sonnet-4-20250514"
-ANTHROPIC_API_KEY = "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"
+ANTHROPIC_API_KEY = ""
 
 
 def _read_image_as_base64(image_path: str) -> tuple[str, str]:
@@ -71,10 +72,10 @@ def _normalize_items(payload: dict[str, Any]) -> list[dict[str, str]]:
 
 
 def extrair_artigos_catalogo(
-        image_path: str,
-        api_key: str | None = None,
-        model: str = DEFAULT_MODEL,
-        max_tokens: int = 4096,
+    image_path: str,
+    api_key: str | None = None,
+    model: str = DEFAULT_MODEL,
+    max_tokens: int = 4096,
 ) -> dict[str, Any]:
     """
     Envia uma imagem para a API da Anthropic, verifica se parece um catalogo de
@@ -168,8 +169,7 @@ def extrair_artigos_catalogo(
 if __name__ == "__main__":
     sample_image = r"C:\Users\Utilizador\Desktop\Ideias para negocios\ler_panfletos\result\imgs\pagina_1.jpg"
     try:
-        result = extrair_artigos_catalogo(sample_image,
-                                          api_key="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")
+        result = extrair_artigos_catalogo(sample_image, api_key="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")
         print(json.dumps(result, ensure_ascii=False, indent=2))
     except Exception as exc:
         print(f"Erro: {exc}")
