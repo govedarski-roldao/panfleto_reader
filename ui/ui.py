@@ -20,7 +20,6 @@ import sys
 # ---------------------------- CONSTANTS ------------------------------- #
 
 
-
 # ---------------------------- FUNCTIONS ------------------------------- #
 
 root = None
@@ -30,6 +29,7 @@ wm_var = None
 test_bench_var = None
 main_title_input = None
 attachments_input = None
+destination_input = None
 attached_count_label = None
 log_text = None
 
@@ -48,11 +48,9 @@ class TextRedirector:
     def _append(self, message):
         self.text_widget.config(state="normal")
 
-        # garante que a mensagem termina com \n
         if not message.endswith("\n"):
             message += "\n"
 
-        # adiciona UMA linha em branco extra
         message += "\n"
 
         self.text_widget.insert("end", message, self.tag)
@@ -66,6 +64,7 @@ class TextRedirector:
 def reset_fields():
     main_title_input.delete(0, END)
     attachments_input.delete(0, END)
+    destination_input.delete(0, END)
     attached_count_label.config(text="Files attached: 0")
     main_title_input.focus()
 
@@ -74,9 +73,9 @@ def open_link(url):
     chrome_paths = [
         "C:/Program Files/Google/Chrome/Application/chrome.exe",
         "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
-        "/usr/bin/google-chrome",  # Linux
-        "/usr/bin/google-chrome-stable",  # Linux alternative
-        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"  # macOS
+        "/usr/bin/google-chrome",
+        "/usr/bin/google-chrome-stable",
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
     ]
     reset_fields()
     chrome_found = False
@@ -87,7 +86,6 @@ def open_link(url):
             break
 
     if not chrome_found:
-        # Fallback para navegador padrão
         webbrowser.open_new(url)
 
 
@@ -114,14 +112,24 @@ def browse_files():
     if filenames:
         attachments_input.delete(0, END)
         attachments_input.insert(0, "; ".join(filenames))
-
-        # Update Counter
         attached_count_label.config(text=f"Files attached: {len(filenames)}")
+
+
+def browse_destination_folder():
+    folder = filedialog.askdirectory(title="Select destination folder")
+    if folder:
+        destination_input.delete(0, END)
+        destination_input.insert(0, folder)
 
 
 def create_ticket_thread():
     pdf_path = attachments_input.get().strip()
-    threading.Thread(target=remove_img_from_pdf, args=(pdf_path,), daemon=True).start()
+    destination_folder = destination_input.get().strip()
+    threading.Thread(
+        target=remove_img_from_pdf,
+        args=(pdf_path, destination_folder or None, main_title_input.get().strip()),
+        daemon=True,
+    ).start()
 
 
 def organize_files(files_to_organize):
@@ -165,7 +173,7 @@ def verify_fields():
     errors = []
     files_to_send = []
     main_title = main_title_input.get().strip()
-    attachments_str = attachments_input.get().strip()  # string do Entry
+    attachments_str = attachments_input.get().strip()
     bench = bench_var.get()
 
     attachments_list = []
@@ -181,12 +189,12 @@ def verify_fields():
                 errors.append(f"attachment not found: {file}")
             else:
                 file_size_kb = os.path.getsize(file) / 1024
-                if file_size_kb > 90000:  # > 90MB
+                if file_size_kb > 90000:
                     zip_path = file + ".zip"
                     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
                         zipf.write(file, arcname=os.path.basename(file))
-                    attachments_list.append(file)  # manter o ficheiro original
-                    attachments_list.append(zip_path)  # adicionar o zip também
+                    attachments_list.append(file)
+                    attachments_list.append(zip_path)
                     files_to_send.append(file)
                     files_to_send.append(zip_path)
                     big_files.append(file)
@@ -201,7 +209,7 @@ def verify_fields():
     return {
         "main_title": main_title,
         "creator": creator_var.get(),
-        "attachments": attachments_list,  # ficheiros originais + zips
+        "attachments": attachments_list,
         "files_to_send": files_to_send,
         "wm": wm_var.get(),
         "bench": bench_var.get(),
@@ -210,7 +218,7 @@ def verify_fields():
 
 def run_ui():
     global root, creator_var, bench_var, wm_var, test_bench_var
-    global main_title_input, attachments_input, attached_count_label, log_text
+    global main_title_input, attachments_input, destination_input, attached_count_label, log_text
 
     root = Tk()
     root.title("Extractor de Precos")
@@ -225,6 +233,7 @@ def run_ui():
 
     Label(root, text="Titulo para pasta final:", bg="#f5f5f5").grid(column=0, row=0, sticky="W", pady=5)
     Label(root, text="Escolhe o ficheiro PDF:", bg="#f5f5f5").grid(column=0, row=3, sticky="W", pady=5)
+    Label(root, text="ESCOLHE PASTA DE DESTINO", bg="#f5f5f5").grid(column=0, row=8, sticky="W", pady=5)
 
     attached_count_label = Label(root, text="Files attached: 0", bg="#f5f5f5")
     attached_count_label.grid(column=2, row=4, sticky="W", padx=10)
@@ -235,6 +244,9 @@ def run_ui():
 
     attachments_input = Entry(root, width=80, bd=2, relief="groove", font=("Arial", 10))
     attachments_input.grid(column=0, row=4, columnspan=2, sticky="EW", padx=10, pady=5)
+
+    destination_input = Entry(root, width=80, bd=2, relief="groove", font=("Arial", 10))
+    destination_input.grid(column=0, row=9, columnspan=2, sticky="EW", padx=10, pady=5)
 
     root.grid_columnconfigure(1, weight=1)
 
@@ -249,6 +261,17 @@ def run_ui():
     )
     browse_button.grid(column=2, row=3, padx=10, pady=5, sticky="E")
 
+    browse_destination_button = Button(
+        text="Browse...",
+        command=browse_destination_folder,
+        bg="#007acc",
+        fg="white",
+        relief="raised",
+        padx=10,
+        pady=5,
+    )
+    browse_destination_button.grid(column=2, row=8, padx=10, pady=5, sticky="E")
+
     create_ticket_button = Button(
         root,
         text="Extrair Precos",
@@ -259,7 +282,7 @@ def run_ui():
         padx=15,
         pady=8,
     )
-    create_ticket_button.grid(column=0, row=9, columnspan=3, pady=10, sticky="EW")
+    create_ticket_button.grid(column=0, row=10, columnspan=3, pady=10, sticky="EW")
 
     log_frame = Frame(root, bg="black")
     log_frame.grid(column=0, row=11, columnspan=3, sticky="EW", padx=10, pady=10)
