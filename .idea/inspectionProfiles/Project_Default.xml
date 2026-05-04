@@ -1,0 +1,64 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="attrs" />
+          <option value="blinker" />
+          <option value="Bootstrap-Flask" />
+          <option value="certifi" />
+          <option value="cffi" />
+          <option value="charset-normalizer" />
+          <option value="click" />
+          <option value="colorama" />
+          <option value="dominate" />
+          <option value="et_xmlfile" />
+          <option value="Flask" />
+          <option value="Flask-Bootstrap" />
+          <option value="flask-bootstrap5" />
+          <option value="Flask-CKEditor" />
+          <option value="Flask-Gravatar" />
+          <option value="Flask-Login" />
+          <option value="Flask-SQLAlchemy" />
+          <option value="Flask-WTF" />
+          <option value="greenlet" />
+          <option value="h11" />
+          <option value="idna" />
+          <option value="IMAPClient" />
+          <option value="itsdangerous" />
+          <option value="Jinja2" />
+          <option value="MarkupSafe" />
+          <option value="openpyxl" />
+          <option value="outcome" />
+          <option value="pillow" />
+          <option value="pycparser" />
+          <option value="pymssql" />
+          <option value="pyperclip" />
+          <option value="PySocks" />
+          <option value="requests" />
+          <option value="robotframework" />
+          <option value="robotframework-assertion-engine" />
+          <option value="robotframework-databaselibrary" />
+          <option value="robotframework-excellib" />
+          <option value="robotframework-pythonlibcore" />
+          <option value="robotframework-requests" />
+          <option value="robotframework-seleniumlibrary" />
+          <option value="selenium" />
+          <option value="sniffio" />
+          <option value="sortedcontainers" />
+          <option value="SQLAlchemy" />
+          <option value="trio" />
+          <option value="trio-websocket" />
+          <option value="typing_extensions" />
+          <option value="urllib3" />
+          <option value="visitor" />
+          <option value="websocket-client" />
+          <option value="Werkzeug" />
+          <option value="wsproto" />
+          <option value="WTForms" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>
