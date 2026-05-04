@@ -1,0 +1,50 @@
+name: Build executables (Win/Mac/Linux)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ windows-latest, macos-latest, ubuntu-latest ]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller --onefile main.py
+
+      - name: Rename output (optional)
+        run: |
+          mkdir output
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            mv dist/main.exe output/main-windows.exe
+          elif [ "${{ runner.os }}" = "macOS" ]; then
+            mv dist/main output/main-macos
+          else
+            mv dist/main output/main-linux
+          fi
+        shell: bash
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ runner.os }}
+          path: output/
