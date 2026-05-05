@@ -1,7 +1,18 @@
 import fitz
 import os
+import subprocess
+import sys
 from ai.ai import extrair_artigos_catalogo
 from backend.organize_data import OrganizeData
+
+
+def open_folder(folder_path):
+    if sys.platform.startswith("win"):
+        os.startfile(folder_path)
+    elif sys.platform == "darwin":
+        subprocess.Popen(["open", folder_path])
+    else:
+        subprocess.Popen(["xdg-open", folder_path])
 
 
 def remove_img_from_pdf(pdf_path, destination_dir=None,folder_name="extraction"):
@@ -36,6 +47,7 @@ def remove_img_from_pdf(pdf_path, destination_dir=None,folder_name="extraction")
     print("Todas as folhas do pdf extraidas e convertidas para jpeg")
     data_frame.export_to_excel(base_output_dir)
     print("Ficheiro excel Criado. Nao tens de que Bernardo :)")
+    open_folder(base_output_dir)
     print("Por favor confirma se estao todos os valores correctos. a AI ainda faz alguns erros")
 
 
