@@ -1,4 +1,5 @@
 import base64
+import io
 import json
 import mimetypes
 import os
@@ -7,10 +8,42 @@ from pathlib import Path
 from typing import Any
 from urllib import error, request
 
+from PIL import Image, ImageOps
 
 ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 DEFAULT_MODEL = "claude-sonnet-4-20250514"
-ANTHROPIC_API_KEY = ""
+ANTHROPIC_API_KEY = "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"
+MAX_ANTHROPIC_IMAGE_BYTES = 5 * 1024 * 1024
+TARGET_IMAGE_BYTES = 4_500_000
+
+
+def _compress_image_for_anthropic(path: Path) -> tuple[bytes, str]:
+    with Image.open(path) as original_image:
+        image = ImageOps.exif_transpose(original_image)
+    if image.mode not in {"RGB", "L"}:
+        image = image.convert("RGB")
+
+    max_edge = 2200
+    if max(image.size) > max_edge:
+        image.thumbnail((max_edge, max_edge), Image.Resampling.LANCZOS)
+
+    for _ in range(12):
+        for quality in (85, 75, 65, 55):
+            buffer = io.BytesIO()
+            image.save(buffer, format="JPEG", quality=quality, optimize=True)
+            data = buffer.getvalue()
+            if len(data) <= TARGET_IMAGE_BYTES:
+                return data, "image/jpeg"
+
+        width, height = image.size
+        image = image.resize(
+            (max(1, int(width * 0.85)), max(1, int(height * 0.85))),
+            Image.Resampling.LANCZOS,
+        )
+
+    raise ValueError(
+        "Nao foi possivel comprimir a imagem abaixo do limite de 5 MB da Anthropic."
+    )
 
 
 def _read_image_as_base64(image_path: str) -> tuple[str, str]:
@@ -24,7 +57,11 @@ def _read_image_as_base64(image_path: str) -> tuple[str, str]:
             "Formato de imagem nao suportado. Usa JPG, PNG, WEBP ou GIF."
         )
 
-    encoded = base64.b64encode(path.read_bytes()).decode("utf-8")
+    image_bytes = path.read_bytes()
+    if len(image_bytes) > MAX_ANTHROPIC_IMAGE_BYTES:
+        image_bytes, media_type = _compress_image_for_anthropic(path)
+
+    encoded = base64.b64encode(image_bytes).decode("utf-8")
     return encoded, media_type
 
 
@@ -72,10 +109,10 @@ def _normalize_items(payload: dict[str, Any]) -> list[dict[str, str]]:
 
 
 def extrair_artigos_catalogo(
-    image_path: str,
-    api_key: str | None = None,
-    model: str = DEFAULT_MODEL,
-    max_tokens: int = 4096,
+        image_path: str,
+        api_key: str | None = None,
+        model: str = DEFAULT_MODEL,
+        max_tokens: int = 4096,
 ) -> dict[str, Any]:
     """
     Envia uma imagem para a API da Anthropic, verifica se parece um catalogo de
@@ -169,7 +206,8 @@ def extrair_artigos_catalogo(
 if __name__ == "__main__":
     sample_image = r"C:\Users\Utilizador\Desktop\Ideias para negocios\ler_panfletos\result\imgs\pagina_1.jpg"
     try:
-        result = extrair_artigos_catalogo(sample_image, api_key="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")
+        result = extrair_artigos_catalogo(sample_image,
+                                          api_key="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")
         print(json.dumps(result, ensure_ascii=False, indent=2))
     except Exception as exc:
         print(f"Erro: {exc}")

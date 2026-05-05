@@ -20,7 +20,7 @@ def remove_img_from_pdf(pdf_path, destination_dir=None,folder_name="extraction")
     doc = fitz.open(pdf_path)
     for page_number in range(len(doc)):
         page = doc.load_page(page_number)
-        pix = page.get_pixmap(dpi=300)
+        pix = page.get_pixmap(dpi=200)
 
         output = os.path.join(imgs_dir, f"pagina_{page_number + 1}.jpg")
 
