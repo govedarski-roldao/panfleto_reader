@@ -68,7 +68,8 @@ button:disabled {
 
 .status {
   width: 100%;
-  min-height: 170px;
+  height: 220px;
+  max-height: 220px;
   margin: 24px 0 0;
   overflow: auto;
   border: 2px solid #202124;
