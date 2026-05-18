@@ -10,15 +10,12 @@ import uuid
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote
-from urllib.parse import parse_qs
-from urllib.parse import urlparse
+from urllib.parse import unquote, parse_qs, urlparse
 
 import fitz
 
 from ai.ai import extrair_artigos_catalogo
 from backend.organize_data import OrganizeData
-
 
 ROOT_DIR = Path(__file__).resolve().parent
 WEB_DIR = ROOT_DIR / "docs"
@@ -58,6 +55,7 @@ def parse_multipart(headers, body):
             continue
 
         header_text = header_blob.decode("utf-8", errors="replace")
+
         disposition = ""
         for line in header_text.split("\r\n"):
             if line.lower().startswith("content-disposition:"):
@@ -70,6 +68,7 @@ def parse_multipart(headers, body):
 
         field_name = name_match.group(1)
         filename_match = re.search(r'filename="([^"]*)"', disposition)
+
         if filename_match:
             parts[field_name] = {
                 "filename": filename_match.group(1),
@@ -84,13 +83,13 @@ def parse_multipart(headers, body):
 def add_job_log(job_id, message):
     with JOBS_LOCK:
         job = JOBS.get(job_id)
-        if job is not None:
+        if job:
             job["logs"].append(str(message))
 
 
 def extract_prices_to_excel(pdf_path, folder_name, api_token=None, model=None, job_id=None):
     def log(*parts):
-        message = " ".join(str(part) for part in parts)
+        message = " ".join(str(p) for p in parts)
         print(message)
         if job_id:
             add_job_log(job_id, message)
@@ -102,6 +101,7 @@ def extract_prices_to_excel(pdf_path, folder_name, api_token=None, model=None, j
         shutil.rmtree(base_output_dir)
 
     imgs_dir.mkdir(parents=True, exist_ok=True)
+
     data_frame = OrganizeData()
 
     doc = fitz.open(str(pdf_path))
@@ -109,8 +109,10 @@ def extract_prices_to_excel(pdf_path, folder_name, api_token=None, model=None, j
         for page_number in range(len(doc)):
             page = doc.load_page(page_number)
             pix = page.get_pixmap(dpi=200)
+
             image_path = imgs_dir / f"pagina_{page_number + 1}.jpg"
             pix.save(str(image_path))
+
             log("Guardado:", image_path)
 
             picture_to_analyse = extrair_artigos_catalogo(
@@ -118,25 +120,30 @@ def extract_prices_to_excel(pdf_path, folder_name, api_token=None, model=None, j
                 api_key=api_token or None,
                 model=model or "claude-sonnet-4-20250514",
             )
+
             for item in picture_to_analyse["items"]:
                 log(item["name"], item["price"])
                 data_frame.add_lines(item)
-                log("Artigo:", item["name"], "com Preco:", item["price"], "adicionado")
+                log("Artigo:", item["name"], "Preço:", item["price"])
+
     finally:
         doc.close()
 
-    log("Todas as folhas do pdf extraidas e convertidas para jpeg")
+    log("PDF processado com sucesso")
     data_frame.export_to_excel(str(base_output_dir))
-    log("Ficheiro excel Criado.")
+    log("Excel criado")
+
     return base_output_dir / "resultados.xlsx"
 
 
 def run_extraction_job(job_id, pdf_bytes, title, api_token, model):
     try:
-        add_job_log(job_id, "CREATING TICKET, HOLD ON")
-        with tempfile.TemporaryDirectory(prefix="extractor_precos_") as tmp_dir:
+        add_job_log(job_id, "INICIADO")
+
+        with tempfile.TemporaryDirectory(prefix="extractor_") as tmp_dir:
             pdf_path = Path(tmp_dir) / "upload.pdf"
             pdf_path.write_bytes(pdf_bytes)
+
             excel_path = extract_prices_to_excel(
                 pdf_path,
                 title,
@@ -150,6 +157,7 @@ def run_extraction_job(job_id, pdf_bytes, title, api_token, model):
             job["excel_path"] = str(excel_path)
             job["filename"] = safe_excel_filename(title)
             job["status"] = "done"
+
     except Exception as exc:
         traceback.print_exc()
         with JOBS_LOCK:
@@ -160,66 +168,60 @@ def run_extraction_job(job_id, pdf_bytes, title, api_token, model):
 
 
 class Handler(BaseHTTPRequestHandler):
+
     def do_GET(self):
-        parsed_url = urlparse(self.path)
-        if parsed_url.path == "/status":
-            self._handle_status(parsed_url)
+        parsed = urlparse(self.path)
+
+        if parsed.path == "/status":
+            self._handle_status(parsed)
             return
 
-        if parsed_url.path == "/download":
-            self._handle_download(parsed_url)
+        if parsed.path == "/download":
+            self._handle_download(parsed)
             return
 
-        requested = unquote(parsed_url.path)
-        if requested == "/":
-            requested = "/index.html"
+        path = unquote(parsed.path)
 
-        file_path = (WEB_DIR / requested.lstrip("/")).resolve()
+        if path == "/":
+            path = "/index.html"
+
+        file_path = (WEB_DIR / path.lstrip("/")).resolve()
+
         if not str(file_path).startswith(str(WEB_DIR.resolve())) or not file_path.is_file():
-            self.send_error(HTTPStatus.NOT_FOUND, "Ficheiro nao encontrado.")
+            self.send_error(404, "Não encontrado")
             return
 
-        content_type = mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"
         content = file_path.read_bytes()
-        self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", content_type)
+        mime = mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"
+
+        self.send_response(200)
+        self.send_header("Content-Type", mime)
         self.send_header("Content-Length", str(len(content)))
         self.end_headers()
         self.wfile.write(content)
 
     def do_POST(self):
         if self.path != "/extract":
-            self.send_error(HTTPStatus.NOT_FOUND, "Endpoint nao encontrado.")
+            self.send_error(404)
             return
 
         try:
-            length = int(self.headers.get("Content-Length", "0"))
+            length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length)
+
             fields = parse_multipart(self.headers, body)
 
             upload = fields.get("pdf")
-            if not isinstance(upload, dict) or not upload.get("content"):
-                self._send_text(HTTPStatus.BAD_REQUEST, "Escolhe um ficheiro PDF.")
+            if not isinstance(upload, dict):
+                self._send_text(400, "PDF obrigatório")
                 return
 
-            title = fields.get("title", "lista_de_valores")
-            if not isinstance(title, str):
-                title = "extraction"
-
+            title = fields.get("title", "extraction")
             api_token = fields.get("api_token", "")
-            if not isinstance(api_token, str):
-                api_token = ""
-            api_token = api_token.strip()
-            if not api_token:
-                self._send_text(HTTPStatus.BAD_REQUEST, "Introduz o token Anthropic.")
-                return
-
             model = fields.get("model", "claude-sonnet-4-20250514")
-            if not isinstance(model, str):
-                model = "claude-sonnet-4-20250514"
-            model = model.strip() or "claude-sonnet-4-20250514"
 
             job_id = uuid.uuid4().hex
+
             with JOBS_LOCK:
                 JOBS[job_id] = {
                     "status": "running",
@@ -229,84 +231,73 @@ class Handler(BaseHTTPRequestHandler):
                     "filename": safe_excel_filename(title),
                 }
 
-            worker = threading.Thread(
+            thread = threading.Thread(
                 target=run_extraction_job,
                 args=(job_id, upload["content"], title, api_token, model),
                 daemon=True,
             )
-            worker.start()
+            thread.start()
 
-            content = json.dumps({"job_id": job_id}).encode("utf-8")
-            self.send_response(HTTPStatus.OK)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_header("Content-Length", str(len(content)))
-            self.end_headers()
-            self.wfile.write(content)
+            self._send_json({"job_id": job_id})
+
         except Exception as exc:
             traceback.print_exc()
-            self._send_text(HTTPStatus.INTERNAL_SERVER_ERROR, str(exc))
+            self._send_text(500, str(exc))
 
-    def _handle_status(self, parsed_url):
-        job_id = parse_qs(parsed_url.query).get("job_id", [""])[0]
+    def _handle_status(self, parsed):
+        job_id = parse_qs(parsed.query).get("job_id", [""])[0]
+
         with JOBS_LOCK:
             job = JOBS.get(job_id)
-            if job is None:
-                self._send_text(HTTPStatus.NOT_FOUND, "Job nao encontrado.")
+            if not job:
+                self._send_text(404, "Job não encontrado")
                 return
-            payload = {
-                "status": job["status"],
-                "logs": list(job["logs"]),
-                "error": job.get("error", ""),
-                "filename": job.get("filename", "resultados.xlsx"),
-            }
 
-        content = json.dumps(payload).encode("utf-8")
-        self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", str(len(content)))
-        self.end_headers()
-        self.wfile.write(content)
+        self._send_json(job)
 
-    def _handle_download(self, parsed_url):
-        job_id = parse_qs(parsed_url.query).get("job_id", [""])[0]
+    def _handle_download(self, parsed):
+        job_id = parse_qs(parsed.query).get("job_id", [""])[0]
+
         with JOBS_LOCK:
             job = JOBS.get(job_id)
-            if job is None:
-                self._send_text(HTTPStatus.NOT_FOUND, "Job nao encontrado.")
+            if not job or job["status"] != "done":
+                self._send_text(400, "Ainda não pronto")
                 return
-            if job["status"] != "done":
-                self._send_text(HTTPStatus.BAD_REQUEST, "O ficheiro ainda nao esta pronto.")
-                return
-            excel_path = Path(job["excel_path"])
-            filename = job.get("filename", "resultados.xlsx")
 
-        if not excel_path.is_file():
-            self._send_text(HTTPStatus.NOT_FOUND, "Ficheiro excel nao encontrado.")
+        file_path = Path(job["excel_path"])
+
+        if not file_path.exists():
+            self._send_text(404, "Ficheiro não encontrado")
             return
 
-        content = excel_path.read_bytes()
-        self.send_response(HTTPStatus.OK)
-        self.send_header(
-            "Content-Type",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
-        self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+        content = file_path.read_bytes()
+
+        self.send_response(200)
+        self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        self.send_header("Content-Disposition", f'attachment; filename="{job["filename"]}"')
         self.send_header("Content-Length", str(len(content)))
         self.end_headers()
         self.wfile.write(content)
 
-    def _send_text(self, status, message):
-        content = message.encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "text/plain; charset=utf-8")
-        self.send_header("Content-Length", str(len(content)))
+    def _send_text(self, code, msg):
+        self.send_response(code)
         self.end_headers()
-        self.wfile.write(content)
+        self.wfile.write(msg.encode())
+
+    def _send_json(self, obj):
+        data = json.dumps(obj).encode()
+
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
 
-def run(host="127.0.0.1", port=8765):
-    server = ThreadingHTTPServer((host, port), Handler)
-    print(f"Pagina disponivel em http://{host}:{port}")
+def run():
+    port = int(os.environ.get("PORT", 10000))
+    server = ThreadingHTTPServer(("0.0.0.0", port), Handler)
+    print(f"Running on port {port}")
     server.serve_forever()
 
 
