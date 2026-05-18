@@ -1,4 +1,6 @@
-pillow
-pymupdf
-pandas
+opencv-python
 openpyxl
+pandas
+pillow
+PyMuPDF
+pytesseract
