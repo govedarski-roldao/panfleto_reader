@@ -12,9 +12,21 @@ from PIL import Image, ImageOps
 
 ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 DEFAULT_MODEL = "claude-sonnet-4-20250514"
-ANTHROPIC_API_KEY = "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"
 MAX_ANTHROPIC_IMAGE_BYTES = 5 * 1024 * 1024
 TARGET_IMAGE_BYTES = 4_500_000
+
+
+def _read_local_api_key() -> str:
+    env_path = Path(__file__).resolve().parents[1] / ".env.local"
+    if not env_path.is_file():
+        return ""
+
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        key, separator, value = line.partition("=")
+        if separator and key.strip() == "ANTHROPIC_API_KEY":
+            return value.strip().strip('"').strip("'")
+
+    return ""
 
 
 def _compress_image_for_anthropic(path: Path) -> tuple[bytes, str]:
@@ -118,9 +130,12 @@ def extrair_artigos_catalogo(
     Envia uma imagem para a API da Anthropic, verifica se parece um catalogo de
     supermercado e extrai os nomes/precos dos artigos.
     """
-    resolved_api_key = api_key or ANTHROPIC_API_KEY or os.getenv("ANTHROPIC_API_KEY")
+    resolved_api_key = api_key or os.getenv("ANTHROPIC_API_KEY") or _read_local_api_key()
     if not resolved_api_key:
-        raise ValueError("Define o api_key ou a variavel de ambiente ANTHROPIC_API_KEY.")
+        raise ValueError(
+            "Define o api_key, a variavel de ambiente ANTHROPIC_API_KEY, "
+            "ou ANTHROPIC_API_KEY no ficheiro local .env.local."
+        )
 
     image_base64, media_type = _read_image_as_base64(image_path)
 
@@ -206,8 +221,7 @@ def extrair_artigos_catalogo(
 if __name__ == "__main__":
     sample_image = r"C:\Users\Utilizador\Desktop\Ideias para negocios\ler_panfletos\result\imgs\pagina_1.jpg"
     try:
-        result = extrair_artigos_catalogo(sample_image,
-                                          api_key="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")
+        result = extrair_artigos_catalogo(sample_image)
         print(json.dumps(result, ensure_ascii=False, indent=2))
     except Exception as exc:
         print(f"Erro: {exc}")
