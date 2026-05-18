@@ -115,12 +115,14 @@ def extract_prices_to_excel(pdf_path, folder_name, api_token=None, model=None, j
             pix.save(str(image_path))
 
             log("Guardado:", image_path)
+            log("A chamar Anthropic para pagina", page_number + 1)
 
             picture_to_analyse = extrair_artigos_catalogo(
                 str(image_path),
                 api_key=api_token or None,
                 model=model or "claude-sonnet-4-20250514",
             )
+            log("Resposta Anthropic recebida para pagina", page_number + 1)
 
             for item in picture_to_analyse["items"]:
                 log(item["name"], item["price"])

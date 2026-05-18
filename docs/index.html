@@ -103,7 +103,9 @@
         }
 
         if (job.status === "error") {
-          throw new Error(job.error || "Erro ao extrair precos.");
+          const logs = Array.isArray(job.logs) ? job.logs.join("\n") : "";
+          const message = job.error || logs || "Erro ao extrair precos.";
+          throw new Error(message);
         }
 
         await new Promise((resolve) => setTimeout(resolve, 1000));
