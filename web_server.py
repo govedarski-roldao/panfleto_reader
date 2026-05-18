@@ -7,7 +7,6 @@ import tempfile
 import threading
 import traceback
 import uuid
-from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, parse_qs, urlparse
@@ -25,6 +24,8 @@ JOBS_LOCK = threading.Lock()
 
 
 def safe_folder_name(value):
+    if not isinstance(value, str):
+        value = "lista_de_valores"
     cleaned = re.sub(r"[^A-Za-z0-9_. -]+", "_", value.strip() or "lista_de_valores")
     return cleaned.strip(" .") or "extraction"
 
@@ -124,7 +125,7 @@ def extract_prices_to_excel(pdf_path, folder_name, api_token=None, model=None, j
             for item in picture_to_analyse["items"]:
                 log(item["name"], item["price"])
                 data_frame.add_lines(item)
-                log("Artigo:", item["name"], "Preço:", item["price"])
+                log("Artigo:", item["name"], "Preco:", item["price"])
 
     finally:
         doc.close()
@@ -159,12 +160,13 @@ def run_extraction_job(job_id, pdf_bytes, title, api_token, model):
             job["status"] = "done"
 
     except Exception as exc:
+        error_message = f"{type(exc).__name__}: {exc}" if str(exc) else type(exc).__name__
         traceback.print_exc()
         with JOBS_LOCK:
             job = JOBS[job_id]
             job["status"] = "error"
-            job["error"] = str(exc)
-            job["logs"].append(f"Erro: {exc}")
+            job["error"] = error_message
+            job["logs"].append(f"Erro: {error_message}")
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -188,7 +190,7 @@ class Handler(BaseHTTPRequestHandler):
         file_path = (WEB_DIR / path.lstrip("/")).resolve()
 
         if not str(file_path).startswith(str(WEB_DIR.resolve())) or not file_path.is_file():
-            self.send_error(404, "Não encontrado")
+            self.send_error(404, "Nao encontrado")
             return
 
         content = file_path.read_bytes()
@@ -212,13 +214,23 @@ class Handler(BaseHTTPRequestHandler):
             fields = parse_multipart(self.headers, body)
 
             upload = fields.get("pdf")
-            if not isinstance(upload, dict):
-                self._send_text(400, "PDF obrigatório")
+            if not isinstance(upload, dict) or not upload.get("content"):
+                self._send_text(400, "PDF obrigatorio")
                 return
 
             title = fields.get("title", "extraction")
             api_token = fields.get("api_token", "")
             model = fields.get("model", "claude-sonnet-4-20250514")
+            if not isinstance(api_token, str):
+                api_token = ""
+            if not isinstance(model, str):
+                model = "claude-sonnet-4-20250514"
+
+            api_token = api_token.strip()
+            model = model.strip() or "claude-sonnet-4-20250514"
+            if not api_token:
+                self._send_text(400, "Token Anthropic obrigatorio")
+                return
 
             job_id = uuid.uuid4().hex
 
@@ -250,7 +262,7 @@ class Handler(BaseHTTPRequestHandler):
         with JOBS_LOCK:
             job = JOBS.get(job_id)
             if not job:
-                self._send_text(404, "Job não encontrado")
+                self._send_text(404, "Job nao encontrado")
                 return
 
         self._send_json(job)
@@ -261,13 +273,13 @@ class Handler(BaseHTTPRequestHandler):
         with JOBS_LOCK:
             job = JOBS.get(job_id)
             if not job or job["status"] != "done":
-                self._send_text(400, "Ainda não pronto")
+                self._send_text(400, "Ainda nao pronto")
                 return
 
         file_path = Path(job["excel_path"])
 
         if not file_path.exists():
-            self._send_text(404, "Ficheiro não encontrado")
+            self._send_text(404, "Ficheiro nao encontrado")
             return
 
         content = file_path.read_bytes()
@@ -280,15 +292,18 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(content)
 
     def _send_text(self, code, msg):
+        data = str(msg).encode("utf-8")
         self.send_response(code)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
         self.end_headers()
-        self.wfile.write(msg.encode())
+        self.wfile.write(data)
 
     def _send_json(self, obj):
-        data = json.dumps(obj).encode()
+        data = json.dumps(obj, ensure_ascii=False).encode("utf-8")
 
         self.send_response(200)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
