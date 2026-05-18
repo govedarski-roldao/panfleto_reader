@@ -21,7 +21,7 @@ from backend.organize_data import OrganizeData
 
 
 ROOT_DIR = Path(__file__).resolve().parent
-WEB_DIR = ROOT_DIR / "web"
+WEB_DIR = ROOT_DIR / "docs"
 OUTPUT_DIR = ROOT_DIR / "web_results"
 JOBS = {}
 JOBS_LOCK = threading.Lock()
