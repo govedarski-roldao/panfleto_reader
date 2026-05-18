@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Extractor de Precos</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="page">
+    <section class="panel">
+      <h1>Extractor de Precos</h1>
+
+      <form id="extract-form" class="form">
+        <label class="field">
+          <span>Titulo para o ficheiro final</span>
+          <input id="title" name="title" type="text" value="Lista de valores" autocomplete="off">
+        </label>
+
+        <label class="field">
+          <span>Escolhe o ficheiro PDF</span>
+          <input id="pdf" name="pdf" type="file" accept="application/pdf,.pdf" required>
+        </label>
+
+        <label class="field">
+          <span>Token Anthropic para esta extracao</span>
+          <input id="api-token" name="api_token" type="password" autocomplete="off" required>
+        </label>
+
+        <label class="field">
+          <span>Modelo Anthropic</span>
+          <input id="model" name="model" type="text" value="claude-sonnet-4-20250514" autocomplete="off" required>
+        </label>
+
+        <button id="submit-button" type="submit">Extrair Precos</button>
+      </form>
+
+      <pre id="status" class="status">Logs will appear here...</pre>
+    </section>
+  </main>
+
+  <script>
+    const form = document.getElementById("extract-form");
+    const statusBox = document.getElementById("status");
+    const submitButton = document.getElementById("submit-button");
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const fileInput = document.getElementById("pdf");
+      const file = fileInput.files[0];
+      if (!file) {
+        statusBox.textContent = "Escolhe um ficheiro PDF primeiro.";
+        return;
+      }
+
+      submitButton.disabled = true;
+      statusBox.textContent = "A iniciar extracao...";
+
+      const body = new FormData(form);
+
+      try {
+        const response = await fetch("/extract", {
+          method: "POST",
+          body,
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(errorText || "Erro ao extrair precos.");
+        }
+
+        const payload = await response.json();
+        await waitForJob(payload.job_id);
+      } catch (error) {
+        statusBox.textContent = `Erro: ${error.message}`;
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
+
+    async function waitForJob(jobId) {
+      while (true) {
+        const response = await fetch(`/status?job_id=${encodeURIComponent(jobId)}`);
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(errorText || "Erro ao ler progresso.");
+        }
+
+        const job = await response.json();
+        statusBox.textContent = job.logs.join("\n") || "A processar...";
+        statusBox.scrollTop = statusBox.scrollHeight;
+
+        if (job.status === "done") {
+          const link = document.createElement("a");
+          link.href = `/download?job_id=${encodeURIComponent(jobId)}`;
+          link.download = job.filename || "resultados.xlsx";
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          statusBox.textContent = `${statusBox.textContent}\nDownload iniciado.`;
+          return;
+        }
+
+        if (job.status === "error") {
+          throw new Error(job.error || "Erro ao extrair precos.");
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    }
+  </script>
+</body>
+</html>
