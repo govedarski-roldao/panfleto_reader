@@ -73,7 +73,11 @@
         const payload = await response.json();
         await waitForJob(payload.job_id);
       } catch (error) {
-        statusBox.textContent = `Erro: ${error.message}`;
+        if (error instanceof TypeError && error.message === "Failed to fetch") {
+          statusBox.textContent = "Erro: nao foi possivel ligar ao servidor. Confirma que estas a abrir o dominio do Render e que o deploy esta ativo.";
+        } else {
+          statusBox.textContent = `Erro: ${error.message}`;
+        }
       } finally {
         submitButton.disabled = false;
       }
